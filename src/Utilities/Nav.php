@@ -40,6 +40,11 @@ class Nav
     private static function getNavFromJson()
     {
         $jsonContent = Context::getContextByKey("NAVIGATION_DATA");
+        if (Context::getContextByKey("NAV_RELOAD_ALWAYS") == "1") {
+            // Modo desarrollo: se relee nav.config.json en cada request para que
+            // los cambios del menu se vean sin cerrar sesion.
+            $jsonContent = "";
+        }
         if ($jsonContent === "") {
             $filePath = 'nav.config.json';
             if (!file_exists($filePath)) {

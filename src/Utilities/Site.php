@@ -37,8 +37,8 @@ class Site
     }
     public static function redirectToWithMsg($url, $msg)
     {
-        echo '<script>alert("' . $msg . '");';
-        echo ' window.location.assign("' . $url . '");</script>';
+        echo '<script>alert(' . json_encode($msg) . ');';
+        echo ' window.location.assign(' . json_encode($url) . ');</script>';
         die();
     }
     public static function addLink($href)
