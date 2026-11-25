@@ -4,183 +4,152 @@ namespace Dao\Rutas;
 
 use Dao\Table;
 
-/**
- * DAO de la tabla `rutas`  (MODELO de referencia: copiar este patron en otros modulos).
- *
- * Reglas del DAO:
- *  - Solo habla con la base de datos. Nunca imprime HTML ni lee $_GET/$_POST.
- *  - Todas las consultas usan parametros (:nombre), jamas variables dentro del SQL.
- *  - Devuelve arreglos; el controlador decide que hacer con ellos.
- *
- * Tabla:
- *  rutacod (PK), rutaorigen, rutadestino, rutaest (ACT|INA), rutafch
- *
- * CONVENCION DE NOMBRES (igual que el DAO de referencia del docente):
- *    getAll()   -> lista todos los registros
- *    getById()  -> un registro por su PK
- *    new()      -> inserta
- *    update()   -> actualiza
- *    delete()   -> da de baja  (en este caso BAJA LOGICA, ver nota abajo)
- *
- * BAJA LOGICA: `rutas` es referenciada por `products.rutacod` con ON DELETE NO ACTION,
- * por lo que un DELETE fisico falla con error 1451. Por eso delete() marca
- * rutaest = 'INA'. Lo mismo aplica a `servicios`.
- */
+const RUTAS_SELECT_COLUMNS = "rutacod, rutaorigen, rutadestino, rutaest, rutafch,
+    case when rutaest = 'ACT' then 'Activa'
+         when rutaest = 'INA' then 'Inactiva'
+         else 'Sin Asignar' end as rutaestDsc";
+const RUTAS_SELECT_ALL = "SELECT " . RUTAS_SELECT_COLUMNS . " FROM rutas";
+const RUTAS_SELECT_BY_ID = "SELECT " . RUTAS_SELECT_COLUMNS . " FROM rutas WHERE rutacod = :rutacod;";
+const RUTAS_INSERT = "INSERT INTO rutas (rutaorigen, rutadestino, rutaest, rutafch) VALUES (:rutaorigen, :rutadestino, :rutaest, NOW());";
+const RUTAS_UPDATE = "UPDATE rutas SET rutaorigen = :rutaorigen, rutadestino = :rutadestino, rutaest = :rutaest WHERE rutacod = :rutacod;";
+const RUTAS_DELETE = "UPDATE rutas SET rutaest = 'INA' WHERE rutacod = :rutacod;";
+
 class Rutas extends Table
 {
-    /**
-     * Todas las rutas, ordenadas por origen y destino.
-     * @return array
-     */
-    public static function getAll(): array
+    private function __construct()
     {
-        $sql = "SELECT rutacod, rutaorigen, rutadestino, rutaest, rutafch
-                FROM rutas
-                ORDER BY rutaorigen, rutadestino;";
-        return self::obtenerRegistros($sql, array());
+        throw new \Exception('Not implemented');
+    }
+    private function __clone()
+    {
+        throw new \Exception('Not implemented');
     }
 
-    /**
-     * Una ruta por su codigo.
-     * @param int $rutacod
-     * @return array|false
-     */
+    public static function getAll(): array
+    {
+        return self::obtenerRegistros(RUTAS_SELECT_ALL);
+    }
+
+    public static function getAllPaginated(
+        string $partialName = "",
+        string $status = "",
+        string $orderBy = "",
+        bool $orderDescending = false,
+        int $page = 0,
+        int $itemsPerPage = 10
+    ): array {
+        $sqlstr = "SELECT " . RUTAS_SELECT_COLUMNS . " FROM rutas";
+        $sqlstrCount = "SELECT COUNT(*) as count FROM rutas";
+        $conditions = [];
+        $params = [];
+        if ($partialName != "") {
+            $conditions[] = "(rutaorigen LIKE :partialOrigen OR rutadestino LIKE :partialDestino)";
+            $params["partialOrigen"] = "%" . $partialName . "%";
+            $params["partialDestino"] = "%" . $partialName . "%";
+        }
+        if (!in_array($status, ["ACT", "INA", ""])) {
+            throw new \Exception("Error Processing Request Status has invalid value");
+        }
+        if ($status != "") {
+            $conditions[] = "rutaest = :status";
+            $params["status"] = $status;
+        }
+        if (count($conditions) > 0) {
+            $sqlstr .= " WHERE " . implode(" AND ", $conditions);
+            $sqlstrCount .= " WHERE " . implode(" AND ", $conditions);
+        }
+        if (!in_array($orderBy, ["rutacod", "rutaorigen", "rutadestino", ""])) {
+            throw new \Exception("Error Processing Request OrderBy has invalid value");
+        }
+        if ($orderBy != "") {
+            $sqlstr .= " ORDER BY " . $orderBy;
+            if ($orderDescending) {
+                $sqlstr .= " DESC";
+            }
+        }
+        $numeroDeRegistros = self::obtenerUnRegistro($sqlstrCount, $params)["count"];
+        $pagesCount = ceil($numeroDeRegistros / $itemsPerPage);
+        if ($page > $pagesCount - 1) {
+            $page = $pagesCount - 1;
+        }
+        if ($page < 0) {
+            $page = 0;
+        }
+        $sqlstr .= " LIMIT :desde, :items;";
+        $params["desde"] = (int)($page * $itemsPerPage);
+        $params["items"] = (int)$itemsPerPage;
+        $registros = self::obtenerRegistros($sqlstr, $params);
+        return [
+            "rutas" => $registros,
+            "total" => $numeroDeRegistros,
+            "page" => $page,
+            "itemsPerPage" => $itemsPerPage
+        ];
+    }
+
     public static function getById(int $rutacod)
     {
         return self::obtenerUnRegistro(
-            "SELECT rutacod, rutaorigen, rutadestino, rutaest, rutafch
-             FROM rutas WHERE rutacod = :rutacod;",
-            array("rutacod" => $rutacod)
-        );
-    }
-
-    /**
-     * Inserta una ruta nueva.
-     * @param string $origen
-     * @param string $destino
-     * @param string $estado
-     * @return bool
-     */
-    public static function new(string $origen, string $destino, string $estado = "ACT"): bool
-    {
-        return self::executeNonQuery(
-            "INSERT INTO rutas (rutaorigen, rutadestino, rutaest, rutafch)
-             VALUES (:origen, :destino, :estado, NOW());",
-            array("origen" => $origen, "destino" => $destino, "estado" => $estado)
-        );
-    }
-
-    /**
-     * Actualiza una ruta.
-     * @param int $rutacod
-     * @param string $origen
-     * @param string $destino
-     * @param string $estado
-     * @return bool
-     */
-    public static function update(int $rutacod, string $origen, string $destino, string $estado): bool
-    {
-        return self::executeNonQuery(
-            "UPDATE rutas
-             SET rutaorigen = :origen, rutadestino = :destino, rutaest = :estado
-             WHERE rutacod = :rutacod;",
-            array(
-                "origen" => $origen,
-                "destino" => $destino,
-                "estado" => $estado,
+            RUTAS_SELECT_BY_ID,
+            [
                 "rutacod" => $rutacod
-            )
+            ]
         );
     }
 
-    /**
-     * Baja logica: no se borra la fila porque las salidas la referencian (FK).
-     * @param int $rutacod
-     * @return bool
-     */
-    public static function delete(int $rutacod): bool
+    public static function new(
+        string $rutaorigen,
+        string $rutadestino,
+        string $rutaest = "ACT"
+    ) {
+        return self::executeNonQuery(
+            RUTAS_INSERT,
+            [
+                "rutaorigen" => $rutaorigen,
+                "rutadestino" => $rutadestino,
+                "rutaest" => $rutaest
+            ]
+        );
+    }
+
+    public static function update(
+        string $rutaorigen,
+        string $rutadestino,
+        string $rutaest,
+        int $rutacod
+    ) {
+        return self::executeNonQuery(
+            RUTAS_UPDATE,
+            [
+                "rutaorigen" => $rutaorigen,
+                "rutadestino" => $rutadestino,
+                "rutaest" => $rutaest,
+                "rutacod" => $rutacod
+            ]
+        );
+    }
+
+    public static function delete(int $rutacod)
     {
         return self::executeNonQuery(
-            "UPDATE rutas SET rutaest = 'INA' WHERE rutacod = :rutacod;",
-            array("rutacod" => $rutacod)
+            RUTAS_DELETE,
+            [
+                "rutacod" => $rutacod
+            ]
         );
     }
 
-    /**
-     * Verifica si ya existe una ruta con el mismo origen y destino.
-     * La tabla tiene UNIQUE (rutaorigen, rutadestino), asi que el formulario
-     * debe validar esto antes de insertar o actualizar.
-     *
-     * @param string $origen
-     * @param string $destino
-     * @param int $rutacod  Codigo a excluir (cuando se edita una ruta existente)
-     * @return bool
-     */
-    public static function existeDuplicado(string $origen, string $destino, int $rutacod = 0): bool
+    public static function existeDuplicado(string $rutaorigen, string $rutadestino, int $rutacod = 0): bool
     {
         $fila = self::obtenerUnRegistro(
-            "SELECT COUNT(*) AS total FROM rutas
-             WHERE rutaorigen = :origen AND rutadestino = :destino AND rutacod <> :rutacod;",
-            array("origen" => $origen, "destino" => $destino, "rutacod" => $rutacod)
+            "SELECT COUNT(*) as count FROM rutas
+             WHERE rutaorigen = :rutaorigen AND rutadestino = :rutadestino AND rutacod <> :rutacod;",
+            [
+                "rutaorigen" => $rutaorigen,
+                "rutadestino" => $rutadestino,
+                "rutacod" => $rutacod
+            ]
         );
-        return intval($fila["total"]) > 0;
-    }
-
-    /** Cantidad de rutas activas e inactivas (para la paginacion). */
-    public static function contar(): int
-    {
-        $fila = self::obtenerUnRegistro("SELECT COUNT(*) AS total FROM rutas;", array());
-        return intval($fila["total"]);
-    }
-
-    /**
-     * Una pagina de rutas.
-     *
-     * @param int $pagina Numero de pagina, desde 1
-     * @param int $items  Registros por pagina
-     */
-    public static function obtenerPagina(int $pagina, int $items): array
-    {
-        $sql = "SELECT rutacod, rutaorigen, rutadestino, rutaest, rutafch
-                FROM rutas
-                ORDER BY rutaorigen, rutadestino
-                LIMIT :desde, :items;";
-        return self::obtenerRegistros(
-            $sql,
-            array("desde" => ($pagina - 1) * $items, "items" => $items)
-        );
-    }
-
-    /* ------------------------------------------------------------------
-     * Alias de compatibilidad con la version anterior de este DAO.
-     * Se pueden borrar cuando ningun modulo los use.
-     * ------------------------------------------------------------------ */
-
-    /** @deprecated Usar getById() */
-    public static function obtenerPorId(int $rutacod)
-    {
-        return self::getById($rutacod);
-    }
-
-    /** @deprecated Usar new() */
-    public static function insertar(string $origen, string $destino, string $estado = "ACT")
-    {
-        return self::new($origen, $destino, $estado);
-    }
-
-    /** @deprecated Usar update() */
-    public static function actualizar(int $rutacod, string $origen, string $destino, string $estado)
-    {
-        return self::update($rutacod, $origen, $destino, $estado);
-    }
-
-    /** @deprecated Usar delete() */
-    public static function desactivar(int $rutacod)
-    {
-        return self::delete($rutacod);
-    }
-
-    private function __construct()
-    {
+        return intval($fila["count"]) > 0;
     }
 }

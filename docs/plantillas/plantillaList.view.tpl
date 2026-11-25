@@ -1,101 +1,83 @@
 <!--
-  ==============================================================================
-  PLANTILLA BASE - VISTA DE LISTA (patron List + Form del proyecto ENCAEX)
-  ==============================================================================
+  PLANTILLA BASE - VISTA DE LISTA (patron "Work With")
+  Copie este archivo a  src/Views/templates/<modulo>/<modulo>List.view.tpl
+  Reemplace <modulo>, <Modulo>, {{campoN}} y los nombres de los campos por los reales.
 
-  QUE HAY QUE HACER:
-    1. Copie este archivo a  src/Views/templates/<modulo>/<modulo>List.view.tpl
-       (minusculas en la carpeta y en el nombre del archivo).
-    2. Reemplace TODOS los textos entre <>
-         <modulo>   -> nombre de su modulo   (ej. Servicios)
-         <Modulo>   -> nombre de la clase    (ej. Servicios)
-         <campo>    -> nombre de la columna  (ej. srvnom)
-    3. Reemplace los placeholders {{...}} por los nombres REALES de sus campos.
-       {{campoN}} es un ejemplo generico: no existe en ninguna tabla.
-    4. Borre los comentarios de este encabezado cuando ya lo haya adaptado.
-
-  CONVENCIONES DE NOMBRES (obligatorias):
-    Controlador : src/Controllers/<Modulo>/<Modulo>List.php   (clase <Modulo>List)
-    DAO         : src/Dao/<Modulo>/<Modulo>.php
-    Vista       : src/Views/templates/<modulo>/<modulo>List.view.tpl
-    URL lista   : index.php?page=<Modulo>_<Modulo>List
-    URL form    : index.php?page=<Modulo>_<Modulo>Form&mode=INS|DSP|UPD|DEL
-
-  REGLAS DEL RENDERER (src/Views/Renderer.php) - IMPORTANTE:
-    - {{variable}}  imprime el valor TAL COMO ES. NO escapa HTML.
-                   Todo texto que venga de la BD debe escaparse en el
-                   CONTROLADOR con \Utilities\Html::escFilas() / esc().
-    - {{~variable}} dentro de un {{foreach}} lee una variable de la RAIZ
-                   (fuera del loop). El simbolo ~ es OBLIGATORIO, sin el la
-                   variable sale vacia y el boton NO aparece.
-    - {{if var}} ... {{endif var}}      muestra el bloque si var es verdadero.
-    - {{ifnot var}} ... {{endifnot var}} muestra el bloque si var es falso.
-    - {{foreach lista}} ... {{endfor lista}}  repite el bloque.
-      El cierre debe usar EXACTAMENTE el mismo nombre que la apertura.
-    - Los nombres de variable solo admiten letras, numeros y guion bajo.
-
-  PERMISOS (flags que envia el controlador):
-    create  -> permiso Controllers\<Modulo>\INS  (boton Nuevo)
-    read    -> permiso Controllers\<Modulo>\DSP  (boton Ver)
-    update  -> permiso Controllers\<Modulo>\UPD  (boton Editar)
-    delete  -> permiso Controllers\<Modulo>\DEL  (boton Eliminar)
-    Si un flag es false, el boton NO se renderiza. No los elimine de la vista.
-  ==============================================================================
+  El controlador debe enviar ademas:
+    partialName, status, orderBy, orderDescending, pageNum, itemsPerPage,
+    <registros>Count, pages, <registros>, pagination
+    status_EMP / status_ACT / status_INA  -> "selected"
+    OrderBy<Campo>, Order<Campo>, Order<Campo>Desc  -> true
+    create, read, update, delete  -> permisos del usuario
 -->
+<h1>Trabajar con <Modulo></h1>
 <section class="grid">
-  <div class="col-12 flex flex-end align-center">
-    <div class="col-8">
-      <h2><Modulo></h2>
-      <p class="muted">{{totalRegistros}} registros registrados.</p>
-    </div>
-    <div class="col-4 flex flex-end">
-      {{if create}}
-        <a class="btn" href="index.php?page=<Modulo>_<Modulo>List&mode=INS">Nuevo</a>
-      {{endif create}}
-    </div>
+  <div class="row">
+    <form class="col-12 col-m-8" action="index.php" method="get">
+      <div class="flex align-center">
+        <div class="col-8 row">
+          <input type="hidden" name="page" value="<Modulo>_<Modulo>List">
+          <label class="col-3" for="partialName">Buscar</label>
+          <input class="col-9" type="text" name="partialName" id="partialName" value="{{partialName}}" />
+          <label class="col-3" for="status">Estado</label>
+          <select class="col-9" name="status" id="status">
+            <option value="EMP" {{status_EMP}}>Todos</option>
+            <option value="ACT" {{status_ACT}}>Activo</option>
+            <option value="INA" {{status_INA}}>Inactivo</option>
+          </select>
+        </div>
+        <div class="col-4 align-end">
+          <button type="submit">Filtrar</button>
+        </div>
+      </div>
+    </form>
   </div>
-
-  <div class="col-12 WWList">
-    {{if hayRegistros}}
-    <table>
-      <thead>
-        <tr>
-          <th>Codigo</th>
-          <th>Campo 1</th>
-          <th>Campo 2</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{foreach registros}}
-        <tr>
-          <td>{{codigo}}</td>
-          <td>{{campo1}}</td>
-          <td>{{campo2}}</td>
-          <td><span class="badge badge-{{estado}}">{{estadoTexto}}</span></td>
-          <td>
-            {{if ~read}}
-              <a href="index.php?page=<Modulo>_<Modulo>List&mode=DSP&codigo={{codigo}}">Ver</a>
-            {{endif ~read}}
-            {{if ~update}}
-              <a href="index.php?page=<Modulo>_<Modulo>List&mode=UPD&codigo={{codigo}}">Editar</a>
-            {{endif ~update}}
-            {{if ~delete}}
-              <a href="index.php?page=<Modulo>_<Modulo>List&mode=DEL&codigo={{codigo}}">Eliminar</a>
-            {{endif ~delete}}
-          </td>
-        </tr>
-        {{endfor registros}}
-      </tbody>
-    </table>
-    {{endif hayRegistros}}
-    {{ifnot hayRegistros}}
-    <p>Aun no hay registros.</p>
-    {{endifnot hayRegistros}}
-  </div>
-
-  <div class="col-12">
-    {{paginacion}}
-  </div>
+</section>
+<section class="WWList">
+  <table>
+    <thead>
+      <tr>
+        <th>
+          {{ifnot OrderBy<Campo>}}
+          <a href="index.php?page=<Modulo>_<Modulo>List&orderBy=<campo>&orderDescending=0">Columna 1 <i class="fas fa-sort"></i></a>
+          {{endifnot OrderBy<Campo>}}
+          {{if Order<Campo>Desc}}
+          <a href="index.php?page=<Modulo>_<Modulo>List&orderBy=clear&orderDescending=0">Columna 1 <i class="fas fa-sort-down"></i></a>
+          {{endif Order<Campo>Desc}}
+          {{if Order<Campo>}}
+          <a href="index.php?page=<Modulo>_<Modulo>List&orderBy=<campo>&orderDescending=1">Columna 1 <i class="fas fa-sort-up"></i></a>
+          {{endif Order<Campo>}}
+        </th>
+        <th>Columna 2</th>
+        <th>Estado</th>
+        <th>
+          {{if create}}
+          <a href="index.php?page=<Modulo>_<Modulo>Form&mode=INS">Nuevo</a>
+          {{endif create}}
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      {{foreach registros}}
+      <tr>
+        <td>{{codigo}}</td>
+        <td><a class="link" href="index.php?page=<Modulo>_<Modulo>Form&mode=DSP&codigo={{codigo}}">{{campo1}}</a></td>
+        <td>{{campo2}}</td>
+        <td class="center">{{estadoDsc}}</td>
+        <td class="center">
+          {{if ~read}}
+          <a href="index.php?page=<Modulo>_<Modulo>Form&mode=DSP&codigo={{codigo}}">Ver</a>
+          {{endif ~read}}
+          {{if ~update}}
+          <a href="index.php?page=<Modulo>_<Modulo>Form&mode=UPD&codigo={{codigo}}">Editar</a>
+          {{endif ~update}}
+          {{if ~delete}}
+          <a href="index.php?page=<Modulo>_<Modulo>Form&mode=DEL&codigo={{codigo}}">Eliminar</a>
+          {{endif ~delete}}
+        </td>
+      </tr>
+      {{endfor registros}}
+    </tbody>
+  </table>
+  {{pagination}}
 </section>
