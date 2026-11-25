@@ -1,3 +1,5 @@
+-- ENCAEX: corregido en carretillaanom -> (1) productId es int(11) como products (la FK con bigint fallaba),
+-- (2) el nombre es 'anom' porque asi lo consulta src/Dao/Cart/Cart.php.
 CREATE TABLE
     `products` (
         `productId` int(11) NOT NULL AUTO_INCREMENT,
@@ -24,13 +26,13 @@ CREATE TABLE
     );
 
 CREATE TABLE
-    `carretillaanon` (
+    `carretillaanom` (
         `anoncod` varchar(128) NOT NULL,
-        `productId` bigint(18) NOT NULL,
+        `productId` int(11) NOT NULL,
         `crrctd` int(5) NOT NULL,
         `crrprc` decimal(12, 2) NOT NULL,
         `crrfching` datetime NOT NULL,
         PRIMARY KEY (`anoncod`, `productId`),
         KEY `productId_idx` (`productId`),
-        CONSTRAINT `carretillaanon_prd_key` FOREIGN KEY (`productId`) REFERENCES `products` (`productId`) ON DELETE NO ACTION ON UPDATE NO ACTION
+        CONSTRAINT `carretillaanom_prd_key` FOREIGN KEY (`productId`) REFERENCES `products` (`productId`) ON DELETE NO ACTION ON UPDATE NO ACTION
     );
