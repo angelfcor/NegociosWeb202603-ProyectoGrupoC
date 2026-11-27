@@ -16,6 +16,11 @@
       "id": "Menu_Rutas",
       "nav_url": "index.php?page=Rutas_RutasList",
       "nav_label": "<i class=\"fas fa-route\"></i>&nbsp;Rutas"
+    },
+    {
+      "id": "Menu_Productos",
+      "nav_url": "index.php?page=Productos_ProductosList",
+      "nav_label": "<i class=\"fas fa-box\"></i>&nbsp;Productos/Salidas"
     }
   ]
 }
