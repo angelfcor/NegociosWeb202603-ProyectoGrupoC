@@ -82,6 +82,7 @@ CREATE TABLE
 
 -- ENCAEX: corregido en carretillaanom -> (1) productId es int(11) como products (la FK con bigint fallaba),
 -- (2) el nombre es 'anom' porque asi lo consulta src/Dao/Cart/Cart.php.
+
 CREATE TABLE
     `products` (
         `productId` int(11) NOT NULL AUTO_INCREMENT,
@@ -143,11 +144,11 @@ CREATE TABLE
         PRIMARY KEY (`srvcod`),
         UNIQUE KEY `srvnom_UNIQUE` (`srvnom`)
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
-
 -- DECISION DE DISENO: una "salida" ES una fila de `products`.
---   productStock     = libras disponibles (cupo restante)   <- la "capacidad limitada"
+--   productStock     = libras disponibles (cupo restante)
 --   productCapacidad = libras totales de la salida
 --   productPrice     = precio por libra
+
 ALTER TABLE `products`
     ADD COLUMN `productCapacidad` int(11) NOT NULL DEFAULT 0 AFTER `productStock`,
     ADD COLUMN `productSalida` datetime NULL AFTER `productCapacidad`,
@@ -158,23 +159,23 @@ ALTER TABLE `products`
     ADD CONSTRAINT `products_ruta_key` FOREIGN KEY (`rutacod`) REFERENCES `rutas` (`rutacod`) ON DELETE NO ACTION ON UPDATE NO ACTION,
     ADD CONSTRAINT `products_srv_key` FOREIGN KEY (`srvcod`) REFERENCES `servicios` (`srvcod`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
--- ENCAEX Cupos: datos de prueba. TODOS LOS DATOS SON INVENTADOS (precios, capacidades, fechas).
+-- ENCAEX Cupos: datos de prueba. TODOS LOS DATOS SON INVENTADOS.
 USE `encaex`;
 
 -- ---------------------------------------------------------------------------
 -- Seguridad (RBAC): roles -> funciones -> usuarios
 -- ---------------------------------------------------------------------------
+
 INSERT INTO `roles` (`rolescod`, `rolesdsc`, `rolesest`) VALUES
     ('administrador', 'Administra rutas, servicios y salidas', 'ACT'),
     ('cliente', 'Cliente que reserva cupos', 'ACT');
 
 -- fncod de un controlador = nombre completo de su clase (con namespace). Tipo CTR.
 -- fncod de un item del menu = el "id" en nav.config.json. Tipo MNU.
--- Cada modulo nuevo agrega aqui sus funciones (ver CONTRIBUTING.md).
---
+-- Cada modulo nuevo agrega aqui sus funciones.
+
 -- CONVENCION POR MODULO (7 filas): <Modulo>List, <Modulo>Form, INS, DSP, UPD, DEL y Menu_<Modulo>.
--- Las 4 de INS/DSP/UPD/DEL controlan los botones "Nuevo", "Ver", "Editar" y "Eliminar"
--- de la lista. Si falta alguna, ese boton no aparece (ver Controllers\<Modulo>\<Modulo>List.php).
+
 INSERT INTO `funciones` (`fncod`, `fndsc`, `fnest`, `fntyp`) VALUES
     ('Controllers\\Rutas\\RutasList', 'Lista de rutas', 'ACT', 'CTR'),
     ('Controllers\\Rutas\\RutasForm', 'Formulario de rutas', 'ACT', 'CTR'),
@@ -193,9 +194,34 @@ INSERT INTO `funciones_roles` (`rolescod`, `fncod`, `fnrolest`, `fnexp`) VALUES
     ('administrador', 'Controllers\\Rutas\\DEL', 'ACT', NULL),
     ('administrador', 'Menu_Rutas', 'ACT', NULL);
 
+-- ---------------------------------------------------------------------------
+-- CRUD de Productos / Salidas
+-- ---------------------------------------------------------------------------
+
+-- Una salida se registra como un producto en la tabla `products`.
+
+INSERT INTO `funciones` (`fncod`, `fndsc`, `fnest`, `fntyp`) VALUES
+    ('Controllers\\Productos\\ProductosList', 'Lista de productos y salidas', 'ACT', 'CTR'),
+    ('Controllers\\Productos\\ProductosForm', 'Formulario de productos y salidas', 'ACT', 'CTR'),
+    ('Controllers\\Productos\\INS', 'Crear producto', 'ACT', 'CTR'),
+    ('Controllers\\Productos\\DSP', 'Ver producto', 'ACT', 'CTR'),
+    ('Controllers\\Productos\\UPD', 'Editar producto', 'ACT', 'CTR'),
+    ('Controllers\\Productos\\DEL', 'Eliminar producto', 'ACT', 'CTR'),
+    ('Menu_Productos', 'Menu: Productos/Salidas', 'ACT', 'MNU');
+
+INSERT INTO `funciones_roles` (`rolescod`, `fncod`, `fnrolest`, `fnexp`) VALUES
+    ('administrador', 'Controllers\\Productos\\ProductosList', 'ACT', NULL),
+    ('administrador', 'Controllers\\Productos\\ProductosForm', 'ACT', NULL),
+    ('administrador', 'Controllers\\Productos\\INS', 'ACT', NULL),
+    ('administrador', 'Controllers\\Productos\\DSP', 'ACT', NULL),
+    ('administrador', 'Controllers\\Productos\\UPD', 'ACT', NULL),
+    ('administrador', 'Controllers\\Productos\\DEL', 'ACT', NULL),
+    ('administrador', 'Menu_Productos', 'ACT', NULL);
+
 -- Usuarios de prueba. Las contrasenas dependen de PWD_HASH=ChangeThisSecretAsap en parameters.env.
 --   admin@encaex.test    /  Admin#2026x
 --   cliente@encaex.test  /  Cliente#2026x
+
 INSERT INTO `usuario`
     (`useremail`, `username`, `userpswd`, `userfching`, `userpswdest`, `userpswdexp`, `userest`, `useractcod`, `userpswdchg`, `usertipo`)
 VALUES
@@ -204,12 +230,13 @@ VALUES
 
 INSERT INTO `roles_usuarios` (`usercod`, `rolescod`, `roleuserest`, `roleuserfch`, `roleuserexp`)
 SELECT `usercod`, 'administrador', 'ACT', NOW(), NULL FROM `usuario` WHERE `useremail` = 'admin@encaex.test';
+
 INSERT INTO `roles_usuarios` (`usercod`, `rolescod`, `roleuserest`, `roleuserfch`, `roleuserexp`)
 SELECT `usercod`, 'cliente', 'ACT', NOW(), NULL FROM `usuario` WHERE `useremail` = 'cliente@encaex.test';
-
 -- ---------------------------------------------------------------------------
 -- Negocio: rutas, servicios y salidas (salida = fila de products)
 -- ---------------------------------------------------------------------------
+
 INSERT INTO `rutas` (`rutacod`, `rutaorigen`, `rutadestino`, `rutaest`) VALUES
     (1, 'Miami', 'San Pedro Sula', 'ACT'),
     (2, 'Miami', 'Tegucigalpa', 'ACT'),
@@ -221,7 +248,9 @@ INSERT INTO `servicios` (`srvcod`, `srvnom`, `srvdsc`, `srvest`) VALUES
     (3, 'Distribucion nacional', 'Carga puerta a puerta entre ciudades de Honduras.', 'ACT');
 
 -- 12 salidas = 3 servicios/rutas x 4 jueves de diciembre 2026.
--- productStock = libras disponibles; productCapacidad = libras totales; productPrice = USD por libra.
+-- productStock = libras disponibles; productCapacidad = libras totales.
+-- productPrice = USD por libra en los datos iniciales.
+
 INSERT INTO `products`
     (`productName`, `productDescription`, `productPrice`, `productImgUrl`, `productStock`, `productCapacidad`, `productSalida`, `rutacod`, `srvcod`, `productStatus`)
 VALUES
