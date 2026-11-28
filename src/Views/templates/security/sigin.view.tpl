@@ -1,5 +1,6 @@
 <section class="fullCenter">
   <form class="grid" method="post" action="index.php?page=sec_register">
+    <input type="hidden" name="xsftoken" value="{{xsftoken}}" />
     <section class="depth-1 row col-12 col-m-8 offset-m-2 col-xl-6 offset-xl-3">
       <h1 class="col-12">Crea tu cuenta</h1>
     </section>

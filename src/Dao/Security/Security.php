@@ -52,12 +52,15 @@ class Security extends \Dao\Table
         if (!\Utilities\Validators::IsValidEmail($email)) {
             throw new Exception("Correo no es válido");
         }
+
         if (!\Utilities\Validators::IsValidPassword($password)) {
-            throw new Exception("Contraseña debe ser almenos 8 caracteres, 1 número, 1 mayúscula, 1 símbolo especial");
+            throw new Exception(
+                "Contraseña debe ser almenos 8 caracteres, 1 número, 1 mayúscula, 1 símbolo especial"
+            );
         }
 
         $newUser = self::_usuarioStruct();
-        //Tratamiento de la Contraseña
+
         $hashedPassword = self::_hashPassword($password);
 
         unset($newUser["usercod"]);
@@ -68,21 +71,73 @@ class Security extends \Dao\Table
         $newUser["username"] = "John Doe";
         $newUser["userpswd"] = $hashedPassword;
         $newUser["userpswdest"] = Estados::ACTIVO;
-        $newUser["userpswdexp"] = date('Y-m-d', time() + 7776000);  //(3*30*24*60*60) (m d h mi s)
+        $newUser["userpswdexp"] = date('Y-m-d', time() + 7776000);
         $newUser["userest"] = Estados::ACTIVO;
         $newUser["useractcod"] = hash("sha256", $email.time());
         $newUser["usertipo"] = UsuarioTipo::PUBLICO;
 
-        $sqlIns = "INSERT INTO `usuario` (`useremail`, `username`, `userpswd`,
-            `userfching`, `userpswdest`, `userpswdexp`, `userest`, `useractcod`,
-            `userpswdchg`, `usertipo`)
-            VALUES
-            ( :useremail, :username, :userpswd,
-            now(), :userpswdest, :userpswdexp, :userest, :useractcod,
-            now(), :usertipo);";
+        $sqlIns = "INSERT INTO `usuario` (
+            `useremail`,
+            `username`,
+            `userpswd`,
+            `userfching`,
+            `userpswdest`,
+            `userpswdexp`,
+            `userest`,
+            `useractcod`,
+            `userpswdchg`,
+            `usertipo`
+        ) VALUES (
+            :useremail,
+            :username,
+            :userpswd,
+            NOW(),
+            :userpswdest,
+            :userpswdexp,
+            :userest,
+            :useractcod,
+            NOW(),
+            :usertipo
+        );";
 
-        return self::executeNonQuery($sqlIns, $newUser);
+        $conn = self::getConn();
 
+        try {
+
+            // Iniciar transaccion
+            $conn->beginTransaction();
+
+            // Crear usuario
+            if (!self::executeNonQuery($sqlIns, $newUser, $conn)) {
+                throw new Exception("No se pudo crear el usuario.");
+            }
+
+            // Obtener codigo del usuario creado
+            $userCod = $conn->lastInsertId();
+
+            if (!$userCod || $userCod === "0") {
+                throw new Exception("No se pudo obtener el codigo del usuario.");
+            }
+
+            // Asignar automaticamente el rol cliente
+            if (!self::assignRolToUser($userCod, "cliente", $conn)) {
+                throw new Exception("No se pudo asignar el rol cliente.");
+            }
+
+            // Confirmar ambas operaciones
+            $conn->commit();
+
+            return true;
+
+        } catch (\Throwable $ex) {
+
+            // Revertir operaciones si ocurre un error
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
+
+            throw $ex;
+        }
     }
 
     static public function getUsuarioByEmail($email)
@@ -191,6 +246,32 @@ class Security extends \Dao\Table
                 "rolesdsc" => $rolesdsc,
                 "rolesest" => $rolesest
             )
+        );
+    }
+
+    static public function assignRolToUser($userCod, $rolescod, &$conn = null) 
+    {
+        $sqlIns = "INSERT INTO roles_usuarios (
+            usercod,
+            rolescod,
+            roleuserest,
+            roleuserfch,
+            roleuserexp
+        ) VALUES (
+            :usercod,
+            :rolescod,
+            'ACT',
+            NOW(),
+            NULL
+        );";
+
+        return self::executeNonQuery(
+            $sqlIns,
+            array(
+                "usercod" => $userCod,
+                "rolescod" => $rolescod
+            ),
+            $conn
         );
     }
 
